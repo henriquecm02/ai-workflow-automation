@@ -1,0 +1,56 @@
+[
+  {
+    "match": "pedido chegou faltando",
+    "response": {
+      "categoria": "cliente_reclamacao",
+      "prioridade": "alta",
+      "resumo": "Cliente recebeu pedido incompleto e quer solução até amanhã.",
+      "acao_sugerida": "Enviar os itens faltantes com urgência e confirmar prazo ao cliente.",
+      "prazo_mencionado": "amanhã",
+      "valores_mencionados": [],
+      "rascunho_resposta": "Olá, Marina! Sentimos muito pelo pedido incompleto. Já separamos os itens faltantes e enviaremos hoje. Retornamos com o código de rastreio em seguida.",
+      "confianca": 0.93
+    }
+  },
+  {
+    "match": "GANHE",
+    "response": {
+      "categoria": "spam",
+      "prioridade": "baixa",
+      "resumo": "Oferta promocional não solicitada.",
+      "acao_sugerida": "Arquivar.",
+      "prazo_mencionado": null,
+      "valores_mencionados": [],
+      "rascunho_resposta": "Obrigado.",
+      "confianca": 0.97
+    }
+  },
+  {
+    "match": "segunda via do boleto",
+    "response": {
+      "categoria": "fornecedor_cobranca",
+      "prioridade": "media",
+      "resumo": "Fornecedor envia cobrança de R$ 1.280,00 com vencimento em 25/11.",
+      "acao_sugerida": "Conferir a nota correspondente antes de pagar.",
+      "prazo_mencionado": "25/11",
+      "valores_mencionados": [
+        1280.0
+      ],
+      "rascunho_resposta": "Recebido, vamos conferir e retornamos.",
+      "confianca": 0.88
+    }
+  },
+  {
+    "match": "",
+    "response": {
+      "categoria": "outro",
+      "prioridade": "baixa",
+      "resumo": "Mensagem pouco clara.",
+      "acao_sugerida": "Pedir mais detalhes.",
+      "prazo_mencionado": null,
+      "valores_mencionados": [],
+      "rascunho_resposta": "Poderia dar mais detalhes?",
+      "confianca": 0.4
+    }
+  }
+]

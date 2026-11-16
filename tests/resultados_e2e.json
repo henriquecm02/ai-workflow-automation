@@ -1,0 +1,82 @@
+{
+  "data": "2026-11-15T22:11:30",
+  "n8n": "2.47.7",
+  "llm": "mock",
+  "casos": 11,
+  "aprovados": 11,
+  "mediana_s_por_fluxo": {
+    "email": 0.12,
+    "documento": 0.08,
+    "reuniao": 0.08,
+    "pesquisa": 0.77,
+    "relatorio": 0.21
+  },
+  "resultados": [
+    {
+      "fluxo": "email",
+      "caso": "reclamação com prazo -> urgente, com rascunho",
+      "ok": true,
+      "segundos": 0.35
+    },
+    {
+      "fluxo": "email",
+      "caso": "spam -> arquivar, sem rascunho",
+      "ok": true,
+      "segundos": 0.12
+    },
+    {
+      "fluxo": "email",
+      "caso": "cobrança com valor -> revisão humana",
+      "ok": true,
+      "segundos": 0.15
+    },
+    {
+      "fluxo": "email",
+      "caso": "confiança baixa -> revisão humana",
+      "ok": true,
+      "segundos": 0.09
+    },
+    {
+      "fluxo": "email",
+      "caso": "resposta inválida do LLM -> revisão humana, sem quebrar",
+      "ok": true,
+      "segundos": 0.09
+    },
+    {
+      "fluxo": "documento",
+      "caso": "nota fiscal válida -> pasta do financeiro",
+      "ok": true,
+      "segundos": 0.09
+    },
+    {
+      "fluxo": "documento",
+      "caso": "contrato -> jurídico, com pontos de atenção",
+      "ok": true,
+      "segundos": 0.08
+    },
+    {
+      "fluxo": "documento",
+      "caso": "CNPJ inválido e sem total -> revisão humana",
+      "ok": true,
+      "segundos": 0.08
+    },
+    {
+      "fluxo": "reuniao",
+      "caso": "tarefa atribuída a quem não estava na reunião -> 'a definir'",
+      "ok": true,
+      "segundos": 0.08
+    },
+    {
+      "fluxo": "pesquisa",
+      "caso": "busca real na Wikipedia; citação inexistente removida",
+      "ok": true,
+      "segundos": 0.77
+    },
+    {
+      "fluxo": "relatorio",
+      "caso": "dados reais do BCB; todos os números do texto conferem",
+      "ok": true,
+      "segundos": 0.21
+    }
+  ]
+}

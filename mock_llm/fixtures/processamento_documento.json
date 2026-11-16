@@ -1,0 +1,67 @@
+[
+  {
+    "match": "NOTA FISCAL",
+    "response": {
+      "tipo": "nota_fiscal",
+      "campos": [
+        {
+          "campo": "numero",
+          "valor": "4521"
+        },
+        {
+          "campo": "cnpj",
+          "valor": "00.733.120/0001-90"
+        },
+        {
+          "campo": "valor_total",
+          "valor": "R$ 643,80"
+        },
+        {
+          "campo": "vencimento",
+          "valor": "05/12/2026"
+        }
+      ],
+      "pontos_de_atencao": [],
+      "resumo": "Nota fiscal de embalagens."
+    }
+  },
+  {
+    "match": "CONTRATO",
+    "response": {
+      "tipo": "contrato",
+      "campos": [
+        {
+          "campo": "partes",
+          "valor": "Cantina Bom Prato e Limpeza Total Serviços"
+        },
+        {
+          "campo": "vigencia",
+          "valor": "01/03/2026 a 28/02/2027"
+        },
+        {
+          "campo": "valor",
+          "valor": "R$ 480,00 por visita"
+        }
+      ],
+      "pontos_de_atencao": [
+        "Renovação automática",
+        "Multa de 10% se rescindido antes de 6 meses"
+      ],
+      "resumo": "Contrato de limpeza semanal."
+    }
+  },
+  {
+    "match": "",
+    "response": {
+      "tipo": "nota_fiscal",
+      "campos": [
+        {
+          "campo": "cnpj",
+          "valor": "123"
+        }
+      ],
+      "pontos_de_atencao": [],
+      "resumo": "Documento com dados incompletos."
+    }
+  }
+]

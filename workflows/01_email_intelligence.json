@@ -1,0 +1,375 @@
+{
+  "id": "emailintelligenc",
+  "name": "01 · Email Intelligence",
+  "active": true,
+  "nodes": [
+    {
+      "id": "b19e8d3f-625a-572d-b34a-8956a9966e95",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "email-intelligence",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "webhookId": "c00b0b2c-cf72-5a08-9ca2-a128b3bdfbeb"
+    },
+    {
+      "id": "fe0d13d6-c409-5ab2-9925-2797c96e8536",
+      "name": "Preparar e-mail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const b = $json.body || {};\nif (!b.corpo || !b.assunto) throw new Error('Campos obrigatórios: assunto, corpo');\nreturn [{ json: { de: b.de || '', assunto: String(b.assunto).slice(0, 300),\n  corpo: String(b.corpo).slice(0, 8000), recebido_em: b.recebido_em || new Date().toISOString() } }];"
+      }
+    },
+    {
+      "id": "d19355ee-a3dd-5076-8e35-d3310d077e1c",
+      "name": "IA · montar requisição",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const tarefa = \"Tarefa: triagem_email\\nVocê faz a triagem da caixa de entrada de uma pequena empresa.\\n- Classifique a categoria e a prioridade. Alta = cliente insatisfeito, prazo em até 2 dias, risco financeiro ou legal.\\n- `resumo`: uma frase. `acao_sugerida`: o próximo passo concreto.\\n- `valores_mencionados`: valores em reais citados no e-mail (números), sem inventar.\\n- `rascunho_resposta`: resposta curta, educada e em português; null para spam.\\n- `confianca`: de 0 a 1, quão claro está o e-mail. Seja honesto: e-mail ambíguo tem confiança baixa.\";\nconst schema = {\"type\": \"object\", \"properties\": {\"categoria\": {\"type\": \"string\", \"enum\": [\"cliente_reclamacao\", \"cliente_duvida\", \"fornecedor_cobranca\", \"fornecedor_proposta\", \"interno\", \"spam\", \"outro\"]}, \"prioridade\": {\"type\": \"string\", \"enum\": [\"alta\", \"media\", \"baixa\"]}, \"resumo\": {\"type\": \"string\"}, \"acao_sugerida\": {\"type\": \"string\"}, \"prazo_mencionado\": {\"type\": [\"string\", \"null\"]}, \"valores_mencionados\": {\"type\": \"array\", \"items\": {\"type\": \"number\"}}, \"rascunho_resposta\": {\"type\": [\"string\", \"null\"]}, \"confianca\": {\"type\": \"number\", \"minimum\": 0, \"maximum\": 1}}, \"required\": [\"categoria\", \"prioridade\", \"resumo\", \"acao_sugerida\", \"confianca\"]};\nconst entrada = `De: ${$json.de}\\nAssunto: ${$json.assunto}\\n\\n${$json.corpo}`;\nreturn [{ json: { ...$json, request: {\n  systemInstruction: { parts: [{ text: tarefa }] },\n  contents: [{ role: 'user', parts: [{ text: entrada }] }],\n  generationConfig: { temperature: 0, responseMimeType: 'application/json', responseJsonSchema: schema }\n} } }];"
+      }
+    },
+    {
+      "id": "cc49685d-39a0-5be5-9520-8a9eb0bdefb3",
+      "name": "IA · Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com') + '/v1beta/models/' + ($env.GEMINI_MODEL || 'gemini-3.8-flash') + ':generateContent' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "8178d77e-322d-5c51-ba6d-33cc1d3327de",
+      "name": "IA · validar resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Resposta do Gemini -> objeto. Qualquer falha vira status \"erro_llm\" com revisão humana,\n// em vez de quebrar o fluxo ou seguir com dado inválido.\nconst r = $json;\nconst texto = r?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';\nlet dados = null, erro = r?.error ? JSON.stringify(r.error).slice(0, 300) : null;\nif (!erro) {\n  try { dados = JSON.parse(texto); } catch (e) { erro = 'JSON inválido do modelo: ' + texto.slice(0, 200); }\n}\nconst faltando = dados ? [\"categoria\", \"prioridade\", \"resumo\", \"acao_sugerida\", \"confianca\"].filter(k => !(k in dados)) : [];\nif (faltando.length) erro = 'Campos obrigatórios ausentes: ' + faltando.join(', ');\nconst uso = r?.usageMetadata || {};\nreturn [{ json: {\n  status: erro ? 'erro_llm' : 'ok', erro, dados,\n  tokens: (uso.promptTokenCount || 0) + (uso.candidatesTokenCount || 0) + (uso.thoughtsTokenCount || 0),\n} }];"
+      }
+    },
+    {
+      "id": "3141af6e-a5b9-5499-bc19-24bfed7d244d",
+      "name": "Aplicar regras",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const email = $('Preparar e-mail').first().json;\nconst ia = $json;\nif (ia.status !== 'ok') return [{ json: { email, fila: 'revisao_humana', revisao_humana: true, motivo: ia.erro } }];\nconst d = ia.dados;\n// Regras em código, não no prompt: confiança baixa ou dinheiro envolvido -> humano revisa.\nconst revisao = d.confianca < 0.6 || (d.valores_mencionados || []).length > 0 && d.categoria === 'fornecedor_cobranca';\nconst fila = d.categoria === 'spam' ? 'arquivar' : revisao ? 'revisao_humana' : d.prioridade === 'alta' ? 'urgente' : 'normal';\nreturn [{ json: { email: { de: email.de, assunto: email.assunto }, fila, revisao_humana: revisao,\n  classificacao: d, rascunho_resposta: d.categoria === 'spam' ? null : d.rascunho_resposta, tokens: ia.tokens } }];"
+      }
+    },
+    {
+      "id": "8dc400c7-579b-5fcd-8805-4950e371a1ce",
+      "name": "Fila",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1680,
+        300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.fila }}",
+                    "rightValue": "urgente",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "urgente"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.fila }}",
+                    "rightValue": "normal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "normal"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.fila }}",
+                    "rightValue": "arquivar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "arquivar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.fila }}",
+                    "rightValue": "revisao_humana",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "revisao_humana"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b327f61d-5419-533a-83ee-07a5066869e4",
+      "name": "Ação · urgente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        120
+      ],
+      "parameters": {
+        "jsCode": "// Em produção este nó seria a integração real (Gmail/Slack). Aqui registra a ação decidida.\nreturn [{ json: { ...$json, acao: \"notificar o responsável agora (Slack/Telegram)\", modo: 'demonstracao' } }];"
+      }
+    },
+    {
+      "id": "00795271-873f-5050-aba7-d4db967f7121",
+      "name": "Ação · normal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        260
+      ],
+      "parameters": {
+        "jsCode": "// Em produção este nó seria a integração real (Gmail/Slack). Aqui registra a ação decidida.\nreturn [{ json: { ...$json, acao: \"aplicar rótulo e incluir no resumo diário\", modo: 'demonstracao' } }];"
+      }
+    },
+    {
+      "id": "8dc0b705-102e-5bac-b255-0d9364fdf7fc",
+      "name": "Ação · arquivar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Em produção este nó seria a integração real (Gmail/Slack). Aqui registra a ação decidida.\nreturn [{ json: { ...$json, acao: \"mover para a pasta de spam\", modo: 'demonstracao' } }];"
+      }
+    },
+    {
+      "id": "10b99b60-1afd-51b8-befd-f00c3e4e6a3d",
+      "name": "Ação · revisao_humana",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        540
+      ],
+      "parameters": {
+        "jsCode": "// Em produção este nó seria a integração real (Gmail/Slack). Aqui registra a ação decidida.\nreturn [{ json: { ...$json, acao: \"enviar para a fila de revisão humana\", modo: 'demonstracao' } }];"
+      }
+    }
+  ],
+  "connections": {
+    "IA · montar requisição": {
+      "main": [
+        [
+          {
+            "node": "IA · Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA · Gemini": {
+      "main": [
+        [
+          {
+            "node": "IA · validar resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar e-mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar e-mail": {
+      "main": [
+        [
+          {
+            "node": "IA · montar requisição",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA · validar resposta": {
+      "main": [
+        [
+          {
+            "node": "Aplicar regras",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aplicar regras": {
+      "main": [
+        [
+          {
+            "node": "Fila",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fila": {
+      "main": [
+        [
+          {
+            "node": "Ação · urgente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ação · normal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ação · arquivar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ação · revisao_humana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

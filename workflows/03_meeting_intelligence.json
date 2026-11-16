@@ -1,0 +1,175 @@
+{
+  "id": "meetingintellige",
+  "name": "03 · Meeting Intelligence",
+  "active": true,
+  "nodes": [
+    {
+      "id": "87b88f8d-acae-5ed6-a846-6d0332e2142d",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meeting-intelligence",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "webhookId": "438d1f15-cbbc-5baf-9bcd-356c5db6f275"
+    },
+    {
+      "id": "322cc2fc-4802-5a2f-80f5-f1a49c6db2c0",
+      "name": "Preparar transcrição",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const b = $json.body || {};\nif (!b.transcricao) throw new Error('Campo obrigatório: transcricao');\nreturn [{ json: { titulo: b.titulo || 'Reunião', participantes: b.participantes || [],\n  transcricao: String(b.transcricao).slice(0, 30000) } }];"
+      }
+    },
+    {
+      "id": "2b48568d-3595-5989-97ee-59740087e3a9",
+      "name": "IA · montar requisição",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const tarefa = \"Tarefa: ata_reuniao\\nVocê transforma a transcrição de uma reunião em ata objetiva.\\n- `decisoes`: só o que foi de fato decidido (não sugestões).\\n- `tarefas`: cada uma com responsável (use exatamente o nome de um participante; null se ninguém assumiu) e prazo (como foi dito; null se não houve).\\n- `riscos`: preocupações levantadas que ficaram em aberto.\\n- Não invente decisões, tarefas ou prazos que não estão na transcrição.\";\nconst schema = {\"type\": \"object\", \"properties\": {\"resumo\": {\"type\": \"string\"}, \"decisoes\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"tarefas\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"descricao\": {\"type\": \"string\"}, \"responsavel\": {\"type\": [\"string\", \"null\"]}, \"prazo\": {\"type\": [\"string\", \"null\"]}}, \"required\": [\"descricao\"]}}, \"riscos\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"proxima_reuniao\": {\"type\": [\"string\", \"null\"]}}, \"required\": [\"resumo\", \"decisoes\", \"tarefas\"]};\nconst entrada = `Reunião: ${$json.titulo}\\nParticipantes: ${$json.participantes.join(', ')}\\n\\nTranscrição:\\n${$json.transcricao}`;\nreturn [{ json: { ...$json, request: {\n  systemInstruction: { parts: [{ text: tarefa }] },\n  contents: [{ role: 'user', parts: [{ text: entrada }] }],\n  generationConfig: { temperature: 0, responseMimeType: 'application/json', responseJsonSchema: schema }\n} } }];"
+      }
+    },
+    {
+      "id": "9f33c16b-4743-53bf-9817-9121f02aff25",
+      "name": "IA · Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com') + '/v1beta/models/' + ($env.GEMINI_MODEL || 'gemini-3.8-flash') + ':generateContent' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "16a57142-6acc-55e0-9379-d91d38749c04",
+      "name": "IA · validar resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Resposta do Gemini -> objeto. Qualquer falha vira status \"erro_llm\" com revisão humana,\n// em vez de quebrar o fluxo ou seguir com dado inválido.\nconst r = $json;\nconst texto = r?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';\nlet dados = null, erro = r?.error ? JSON.stringify(r.error).slice(0, 300) : null;\nif (!erro) {\n  try { dados = JSON.parse(texto); } catch (e) { erro = 'JSON inválido do modelo: ' + texto.slice(0, 200); }\n}\nconst faltando = dados ? [\"resumo\", \"decisoes\", \"tarefas\"].filter(k => !(k in dados)) : [];\nif (faltando.length) erro = 'Campos obrigatórios ausentes: ' + faltando.join(', ');\nconst uso = r?.usageMetadata || {};\nreturn [{ json: {\n  status: erro ? 'erro_llm' : 'ok', erro, dados,\n  tokens: (uso.promptTokenCount || 0) + (uso.candidatesTokenCount || 0) + (uso.thoughtsTokenCount || 0),\n} }];"
+      }
+    },
+    {
+      "id": "a33042d7-138b-5917-b18e-7225a1932928",
+      "name": "Montar ata e follow-up",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const r = $('Preparar transcrição').first().json;\nif ($json.status !== 'ok') return [{ json: { status: 'erro_llm', erro: $json.erro } }];\nconst d = $json.dados;\nconst nomes = new Set(r.participantes.map(p => p.toLowerCase()));\n// O modelo pode atribuir tarefa a alguém que não estava na reunião: marcamos em vez de aceitar.\nconst tarefas = (d.tarefas || []).map(t => ({ ...t,\n  responsavel_valido: !!t.responsavel && nomes.has(t.responsavel.toLowerCase()),\n  responsavel: t.responsavel && nomes.has(t.responsavel.toLowerCase()) ? t.responsavel : 'a definir' }));\nconst md = [`# Ata · ${r.titulo}`, '', d.resumo, '', '## Decisões', ...(d.decisoes || []).map(x => `- ${x}`),\n  '', '## Tarefas', '| Tarefa | Responsável | Prazo |', '|---|---|---|',\n  ...tarefas.map(t => `| ${t.descricao} | ${t.responsavel} | ${t.prazo || 'sem prazo'} |`),\n  ...(d.riscos?.length ? ['', '## Riscos', ...d.riscos.map(x => `- ${x}`)] : [])].join('\\n');\nreturn [{ json: { status: 'ok', titulo: r.titulo, ata_markdown: md, tarefas, decisoes: d.decisoes,\n  tarefas_sem_responsavel: tarefas.filter(t => !t.responsavel_valido).length, tokens: $json.tokens } }];"
+      }
+    }
+  ],
+  "connections": {
+    "IA · montar requisição": {
+      "main": [
+        [
+          {
+            "node": "IA · Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA · Gemini": {
+      "main": [
+        [
+          {
+            "node": "IA · validar resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar transcrição",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar transcrição": {
+      "main": [
+        [
+          {
+            "node": "IA · montar requisição",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA · validar resposta": {
+      "main": [
+        [
+          {
+            "node": "Montar ata e follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

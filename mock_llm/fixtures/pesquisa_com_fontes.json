@@ -1,0 +1,32 @@
+[
+  {
+    "match": "",
+    "response": {
+      "resumo": "Resumo baseado nas fontes recuperadas.",
+      "pontos_chave": [
+        {
+          "texto": "Ponto sustentado pela primeira fonte.",
+          "fontes": [
+            1
+          ]
+        },
+        {
+          "texto": "Ponto sustentado por duas fontes.",
+          "fontes": [
+            1,
+            2
+          ]
+        },
+        {
+          "texto": "Ponto com citação inexistente.",
+          "fontes": [
+            9
+          ]
+        }
+      ],
+      "lacunas": [
+        "As fontes não trazem dados recentes."
+      ]
+    }
+  }
+]

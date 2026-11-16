@@ -1,0 +1,17 @@
+# Ambiente de teste: o n8n chama um servidor falso no lugar do Gemini (sem chave, sem custo).
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+services:
+  n8n:
+    environment:
+      GEMINI_API_KEY: chave-de-teste
+      GEMINI_BASE_URL: http://mock-llm:8080
+    depends_on: [mock-llm]
+  mock-llm:
+    image: python:3.12-alpine
+    command: ["python", "/app/server.py"]
+    environment:
+      MOCK_LOG: /logs/requests.jsonl
+    volumes:
+      - ./mock_llm:/app:ro
+      - ./tests/logs:/logs
+    ports: ["8089:8080"]

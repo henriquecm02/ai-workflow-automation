@@ -1,0 +1,175 @@
+{
+  "id": "documentprocessi",
+  "name": "02 · Document Processing",
+  "active": true,
+  "nodes": [
+    {
+      "id": "66ac788b-0de9-55e5-8d75-a51b066b9fa3",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "document-processing",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "webhookId": "c56483b8-eb29-5ca9-8fd0-ddc59f276b7a"
+    },
+    {
+      "id": "207607f0-038b-5fed-9253-bf48f3b0d4b9",
+      "name": "Preparar documento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const b = $json.body || {};\nif (!b.texto) throw new Error('Campo obrigatório: texto (conteúdo extraído do arquivo)');\nreturn [{ json: { arquivo: b.arquivo || 'sem_nome', texto: String(b.texto).slice(0, 15000) } }];"
+      }
+    },
+    {
+      "id": "de2417e0-576a-560f-a85e-8e9768557504",
+      "name": "IA · montar requisição",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const tarefa = \"Tarefa: processamento_documento\\nVocê classifica documentos de uma pequena empresa e extrai os campos importantes.\\n- `tipo`: nota_fiscal, boleto, contrato, curriculo ou outro.\\n- `campos`: lista de {campo, valor} com nomes em snake_case (ex.: numero, cnpj, valor_total, vencimento, partes, vigencia).\\n  Copie os valores como estão no texto; não invente campos ausentes.\\n- `pontos_de_atencao`: multas, prazos, renovações automáticas, inconsistências.\\n- `resumo`: uma frase.\";\nconst schema = {\"type\": \"object\", \"properties\": {\"tipo\": {\"type\": \"string\", \"enum\": [\"nota_fiscal\", \"boleto\", \"contrato\", \"curriculo\", \"outro\"]}, \"campos\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"campo\": {\"type\": \"string\"}, \"valor\": {\"type\": \"string\"}}, \"required\": [\"campo\", \"valor\"]}}, \"pontos_de_atencao\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}, \"resumo\": {\"type\": \"string\"}}, \"required\": [\"tipo\", \"campos\", \"resumo\"]};\nconst entrada = `Arquivo: ${$json.arquivo}\\n\\n${$json.texto}`;\nreturn [{ json: { ...$json, request: {\n  systemInstruction: { parts: [{ text: tarefa }] },\n  contents: [{ role: 'user', parts: [{ text: entrada }] }],\n  generationConfig: { temperature: 0, responseMimeType: 'application/json', responseJsonSchema: schema }\n} } }];"
+      }
+    },
+    {
+      "id": "57ca0e9f-7d94-5c69-8f86-c481782a86a0",
+      "name": "IA · Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com') + '/v1beta/models/' + ($env.GEMINI_MODEL || 'gemini-3.8-flash') + ':generateContent' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "afc3dd5d-1f09-5124-a4e0-0a68575234e7",
+      "name": "IA · validar resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Resposta do Gemini -> objeto. Qualquer falha vira status \"erro_llm\" com revisão humana,\n// em vez de quebrar o fluxo ou seguir com dado inválido.\nconst r = $json;\nconst texto = r?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';\nlet dados = null, erro = r?.error ? JSON.stringify(r.error).slice(0, 300) : null;\nif (!erro) {\n  try { dados = JSON.parse(texto); } catch (e) { erro = 'JSON inválido do modelo: ' + texto.slice(0, 200); }\n}\nconst faltando = dados ? [\"tipo\", \"campos\", \"resumo\"].filter(k => !(k in dados)) : [];\nif (faltando.length) erro = 'Campos obrigatórios ausentes: ' + faltando.join(', ');\nconst uso = r?.usageMetadata || {};\nreturn [{ json: {\n  status: erro ? 'erro_llm' : 'ok', erro, dados,\n  tokens: (uso.promptTokenCount || 0) + (uso.candidatesTokenCount || 0) + (uso.thoughtsTokenCount || 0),\n} }];"
+      }
+    },
+    {
+      "id": "9bca2882-9749-5901-9293-d6b9d5c1d21a",
+      "name": "Validar e organizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const doc = $('Preparar documento').first().json;\nif ($json.status !== 'ok') return [{ json: { arquivo: doc.arquivo, status: 'erro_llm', erro: $json.erro, pasta: 'revisao_humana' } }];\nconst d = $json.dados;\nconst campos = Object.fromEntries((d.campos || []).map(c => [c.campo, c.valor]));\nconst problemas = [];\nconst cnpj = campos.cnpj || campos.cnpj_emitente;\nif (cnpj && !/^\\d{2}\\.\\d{3}\\.\\d{3}\\/\\d{4}-\\d{2}$/.test(cnpj)) problemas.push('cnpj_formato_invalido');\nif (d.tipo === 'nota_fiscal' && !campos.valor_total) problemas.push('valor_total_ausente');\nconst pasta = problemas.length ? 'revisao_humana' : ({ nota_fiscal: 'financeiro/notas', boleto: 'financeiro/boletos',\n  contrato: 'juridico/contratos', curriculo: 'rh/curriculos' }[d.tipo] || 'outros');\nreturn [{ json: { arquivo: doc.arquivo, status: 'ok', tipo: d.tipo, pasta, campos, resumo: d.resumo,\n  pontos_de_atencao: d.pontos_de_atencao, problemas, tokens: $json.tokens } }];"
+      }
+    }
+  ],
+  "connections": {
+    "IA · montar requisição": {
+      "main": [
+        [
+          {
+            "node": "IA · Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA · Gemini": {
+      "main": [
+        [
+          {
+            "node": "IA · validar resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar documento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar documento": {
+      "main": [
+        [
+          {
+            "node": "IA · montar requisição",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA · validar resposta": {
+      "main": [
+        [
+          {
+            "node": "Validar e organizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

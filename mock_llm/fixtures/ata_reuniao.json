@@ -1,0 +1,33 @@
+[
+  {
+    "match": "",
+    "response": {
+      "resumo": "Planejamento da campanha de fim de ano e reposição de estoque.",
+      "decisoes": [
+        "Campanha começa em 01/12",
+        "Orçamento de mídia limitado a R$ 3.000,00"
+      ],
+      "tarefas": [
+        {
+          "descricao": "Fechar artes da campanha",
+          "responsavel": "Ana",
+          "prazo": "26/11"
+        },
+        {
+          "descricao": "Cotar três fornecedores de embalagem",
+          "responsavel": "Bruno",
+          "prazo": "sexta-feira"
+        },
+        {
+          "descricao": "Revisar contrato com a transportadora",
+          "responsavel": "Carlos",
+          "prazo": null
+        }
+      ],
+      "riscos": [
+        "Atraso do fornecedor de embalagens"
+      ],
+      "proxima_reuniao": "02/12"
+    }
+  }
+]

@@ -1,0 +1,361 @@
+{
+  "id": "researchautomati",
+  "name": "04 · Research Automation",
+  "active": true,
+  "nodes": [
+    {
+      "id": "c381c818-f8f4-557e-9c6c-b3d33d8bb158",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "research",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "webhookId": "3cefc421-fba3-5517-917b-061236db722a"
+    },
+    {
+      "id": "3bf8dbe6-0a50-5d78-aca7-fa13452f9e70",
+      "name": "Preparar tema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const b = $json.body || {};\nif (!b.tema) throw new Error('Campo obrigatório: tema');\nreturn [{ json: { tema: String(b.tema).slice(0, 200), max_fontes: Math.min(Number(b.max_fontes) || 3, 5) } }];"
+      }
+    },
+    {
+      "id": "48aa1ae4-dfa4-5f8b-9733-0f901f781be6",
+      "name": "Wikipedia · buscar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://pt.wikipedia.org/w/api.php",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "query"
+            },
+            {
+              "name": "list",
+              "value": "search"
+            },
+            {
+              "name": "format",
+              "value": "json"
+            },
+            {
+              "name": "srsearch",
+              "value": "={{ $json.tema }}"
+            },
+            {
+              "name": "srlimit",
+              "value": "={{ $json.max_fontes }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ai-workflow-automation/0.1 (portfolio)"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "8c570c1c-53e4-5caa-9ea5-75669704db18",
+      "name": "Selecionar fontes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const hits = $json?.query?.search || [];\nif (!hits.length) throw new Error('Nenhuma fonte encontrada para o tema');\nreturn [{ json: { titulos: hits.map(h => h.title).join('|') } }];"
+      }
+    },
+    {
+      "id": "19165695-bbce-5238-9ffb-fd8e5d279ff0",
+      "name": "Wikipedia · ler",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://pt.wikipedia.org/w/api.php",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "query"
+            },
+            {
+              "name": "prop",
+              "value": "extracts"
+            },
+            {
+              "name": "explaintext",
+              "value": "1"
+            },
+            {
+              "name": "exintro",
+              "value": "1"
+            },
+            {
+              "name": "format",
+              "value": "json"
+            },
+            {
+              "name": "redirects",
+              "value": "1"
+            },
+            {
+              "name": "titles",
+              "value": "={{ $json.titulos }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "ai-workflow-automation/0.1 (portfolio)"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "8573fe7e-1468-5d5f-872a-43ef08a89b24",
+      "name": "Organizar fontes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const pages = Object.values($json?.query?.pages || {}).filter(p => p.extract);\nconst fontes = pages.map((p, i) => ({ id: i + 1, titulo: p.title,\n  url: 'https://pt.wikipedia.org/wiki/' + encodeURIComponent(p.title.replace(/ /g, '_')),\n  texto: p.extract.slice(0, 4000) }));\nreturn [{ json: { tema: $('Preparar tema').first().json.tema, fontes } }];"
+      }
+    },
+    {
+      "id": "928b5ba8-f67e-586e-b2a3-24f3bead5275",
+      "name": "IA · montar requisição",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const tarefa = \"Tarefa: pesquisa_com_fontes\\nVocê escreve um resumo de pesquisa usando SOMENTE as fontes numeradas fornecidas.\\n- `resumo`: 3 a 5 frases.\\n- `pontos_chave`: cada ponto cita os números das fontes que o sustentam em `fontes`.\\n- `lacunas`: o que o tema pede e as fontes não cobrem.\\n- Não use conhecimento externo. Se as fontes divergirem, diga isso.\";\nconst schema = {\"type\": \"object\", \"properties\": {\"resumo\": {\"type\": \"string\"}, \"pontos_chave\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"texto\": {\"type\": \"string\"}, \"fontes\": {\"type\": \"array\", \"items\": {\"type\": \"integer\"}}}, \"required\": [\"texto\", \"fontes\"]}}, \"lacunas\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}}, \"required\": [\"resumo\", \"pontos_chave\"]};\nconst entrada = `Tema: ${$json.tema}\\n\\n` + $json.fontes.map(f => `[${f.id}] ${f.titulo}\\n${f.texto}`).join('\\n\\n');\nreturn [{ json: { ...$json, request: {\n  systemInstruction: { parts: [{ text: tarefa }] },\n  contents: [{ role: 'user', parts: [{ text: entrada }] }],\n  generationConfig: { temperature: 0, responseMimeType: 'application/json', responseJsonSchema: schema }\n} } }];"
+      }
+    },
+    {
+      "id": "666831b3-d9e0-5799-b059-adb025f0d82e",
+      "name": "IA · Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com') + '/v1beta/models/' + ($env.GEMINI_MODEL || 'gemini-3.8-flash') + ':generateContent' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "57bf58df-2a0a-578c-b2b0-94e52ff1383c",
+      "name": "IA · validar resposta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Resposta do Gemini -> objeto. Qualquer falha vira status \"erro_llm\" com revisão humana,\n// em vez de quebrar o fluxo ou seguir com dado inválido.\nconst r = $json;\nconst texto = r?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';\nlet dados = null, erro = r?.error ? JSON.stringify(r.error).slice(0, 300) : null;\nif (!erro) {\n  try { dados = JSON.parse(texto); } catch (e) { erro = 'JSON inválido do modelo: ' + texto.slice(0, 200); }\n}\nconst faltando = dados ? [\"resumo\", \"pontos_chave\"].filter(k => !(k in dados)) : [];\nif (faltando.length) erro = 'Campos obrigatórios ausentes: ' + faltando.join(', ');\nconst uso = r?.usageMetadata || {};\nreturn [{ json: {\n  status: erro ? 'erro_llm' : 'ok', erro, dados,\n  tokens: (uso.promptTokenCount || 0) + (uso.candidatesTokenCount || 0) + (uso.thoughtsTokenCount || 0),\n} }];"
+      }
+    },
+    {
+      "id": "55236699-9dc3-515b-a46e-4f7702b6f790",
+      "name": "Montar relatório",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const src = $('Organizar fontes').first().json;\nif ($json.status !== 'ok') return [{ json: { status: 'erro_llm', erro: $json.erro, fontes: src.fontes.map(({texto, ...f}) => f) } }];\nconst d = $json.dados;\nconst ids = new Set(src.fontes.map(f => f.id));\n// Cada ponto precisa citar fonte existente; citação inventada é removida e contabilizada.\nlet citacoes_invalidas = 0;\nconst pontos = (d.pontos_chave || []).map(p => {\n  const ok = (p.fontes || []).filter(i => ids.has(i));\n  citacoes_invalidas += (p.fontes || []).length - ok.length;\n  return { ...p, fontes: ok };\n});\nconst md = [`# ${src.tema}`, '', d.resumo, '', '## Pontos-chave',\n  ...pontos.map(p => p.fontes.length ? `- ${p.texto} ${p.fontes.map(i => `[${i}]`).join('')}` : `- ⚠️ ${p.texto} _(sem fonte válida: confira antes de usar)_`),\n  ...(d.lacunas?.length ? ['', '## O que as fontes não cobrem', ...d.lacunas.map(x => `- ${x}`)] : []),\n  '', '## Fontes', ...src.fontes.map(f => `${f.id}. [${f.titulo}](${f.url})`)].join('\\n');\nreturn [{ json: { status: 'ok', tema: src.tema, relatorio_markdown: md, pontos_sem_fonte: pontos.filter(p => !p.fontes.length).length,\n  citacoes_invalidas, fontes: src.fontes.map(({ texto, ...f }) => f), tokens: $json.tokens } }];"
+      }
+    }
+  ],
+  "connections": {
+    "IA · montar requisição": {
+      "main": [
+        [
+          {
+            "node": "IA · Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA · Gemini": {
+      "main": [
+        [
+          {
+            "node": "IA · validar resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar tema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar tema": {
+      "main": [
+        [
+          {
+            "node": "Wikipedia · buscar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wikipedia · buscar": {
+      "main": [
+        [
+          {
+            "node": "Selecionar fontes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selecionar fontes": {
+      "main": [
+        [
+          {
+            "node": "Wikipedia · ler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wikipedia · ler": {
+      "main": [
+        [
+          {
+            "node": "Organizar fontes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Organizar fontes": {
+      "main": [
+        [
+          {
+            "node": "IA · montar requisição",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA · validar resposta": {
+      "main": [
+        [
+          {
+            "node": "Montar relatório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
