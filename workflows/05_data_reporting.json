@@ -51,7 +51,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const fim = new Date(); const ini = new Date(fim.getTime() - 45 * 864e5);\nconst f = d => d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });\nreturn [{ json: { dataInicial: f(ini), dataFinal: f(fim) } }];"
+        "jsCode": "const fim = new Date(); const ini = new Date(fim.getTime() - 45 * 864e5);\nconst f = d => d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });\n// Sem dataFinal de propósito: a API do BCB responde 304 (sem corpo) para algumas janelas que terminam hoje.\nreturn [{ json: { dataInicial: f(ini) } }];"
       }
     },
     {
@@ -76,10 +76,6 @@
             {
               "name": "dataInicial",
               "value": "={{ $json.dataInicial }}"
-            },
-            {
-              "name": "dataFinal",
-              "value": "={{ $json.dataFinal }}"
             }
           ]
         },

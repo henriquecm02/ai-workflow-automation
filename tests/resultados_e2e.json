@@ -1,46 +1,46 @@
 {
-  "data": "2026-11-15T22:11:30",
+  "data": "2026-11-16T22:27:50",
   "n8n": "2.47.7",
   "llm": "mock",
   "casos": 11,
   "aprovados": 11,
   "mediana_s_por_fluxo": {
-    "email": 0.12,
+    "email": 0.11,
     "documento": 0.08,
     "reuniao": 0.08,
-    "pesquisa": 0.77,
-    "relatorio": 0.21
+    "pesquisa": 0.79,
+    "relatorio": 0.23
   },
   "resultados": [
     {
       "fluxo": "email",
       "caso": "reclamação com prazo -> urgente, com rascunho",
       "ok": true,
-      "segundos": 0.35
+      "segundos": 0.37
     },
     {
       "fluxo": "email",
       "caso": "spam -> arquivar, sem rascunho",
       "ok": true,
-      "segundos": 0.12
+      "segundos": 0.1
     },
     {
       "fluxo": "email",
       "caso": "cobrança com valor -> revisão humana",
       "ok": true,
-      "segundos": 0.15
+      "segundos": 0.12
     },
     {
       "fluxo": "email",
       "caso": "confiança baixa -> revisão humana",
       "ok": true,
-      "segundos": 0.09
+      "segundos": 0.11
     },
     {
       "fluxo": "email",
       "caso": "resposta inválida do LLM -> revisão humana, sem quebrar",
       "ok": true,
-      "segundos": 0.09
+      "segundos": 0.1
     },
     {
       "fluxo": "documento",
@@ -70,13 +70,13 @@
       "fluxo": "pesquisa",
       "caso": "busca real na Wikipedia; citação inexistente removida",
       "ok": true,
-      "segundos": 0.77
+      "segundos": 0.79
     },
     {
       "fluxo": "relatorio",
       "caso": "dados reais do BCB; todos os números do texto conferem",
       "ok": true,
-      "segundos": 0.21
+      "segundos": 0.23
     }
   ]
 }

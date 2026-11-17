@@ -280,10 +280,11 @@ def data_reporting() -> WF:
     period = w.code("Definir período", """
 const fim = new Date(); const ini = new Date(fim.getTime() - 45 * 864e5);
 const f = d => d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-return [{ json: { dataInicial: f(ini), dataFinal: f(fim) } }];
+// Sem dataFinal de propósito: a API do BCB responde 304 (sem corpo) para algumas janelas que terminam hoje.
+return [{ json: { dataInicial: f(ini) } }];
 """)
     bcb = w.http_get("BCB · dólar PTAX", "https://api.bcb.gov.br/dados/serie/bcdata.sgs.1/dados", {
-        "formato": "json", "dataInicial": "={{ $json.dataInicial }}", "dataFinal": "={{ $json.dataFinal }}"})
+        "formato": "json", "dataInicial": "={{ $json.dataInicial }}"})
     stats = w.code("Calcular indicadores", """
 const rows = $input.all().map(i => i.json).filter(r => r.data && r.valor)
   .map(r => ({ data: r.data, valor: Number(r.valor) }));
