@@ -1,0 +1,292 @@
+{
+  "data": "2026-11-16T23:11:26",
+  "n8n": "2.47.7",
+  "llm": "gemini-3.5-flash-lite",
+  "casos": 10,
+  "aprovados": 8,
+  "resultados": [
+    {
+      "fluxo": "email",
+      "caso": "reclamação com prazo -> urgente, com rascunho",
+      "amostra": "email_reclamacao",
+      "ok": true,
+      "segundos": 5.39,
+      "saida": {
+        "email": {
+          "de": "marina@exemplo.invalid",
+          "assunto": "Pedido 1832 incompleto"
+        },
+        "fila": "urgente",
+        "revisao_humana": false,
+        "classificacao": {
+          "categoria": "cliente_reclamacao",
+          "prioridade": "alta",
+          "resumo": "Cliente relata pedido incompleto com falta de 2 caixas e exige resolução urgente para um evento.",
+          "acao_sugerida": "Verificar o status do envio do pedido 1832 e providenciar a entrega das caixas faltantes imediatamente.",
+          "prazo_mencionado": "amanhã",
+          "valores_mencionados": [],
+          "rascunho_resposta": "Olá Marina, pedimos desculpas pelo transtorno. Já estamos verificando o ocorrido com a expedição e daremos prioridade para resolver a entrega das caixas faltantes a tempo do seu evento.",
+          "confianca": 0.95
+        },
+        "rascunho_resposta": "Olá Marina, pedimos desculpas pelo transtorno. Já estamos verificando o ocorrido com a expedição e daremos prioridade para resolver a entrega das caixas faltantes a tempo do seu evento.",
+        "tokens": 385,
+        "acao": "notificar o responsável agora (Slack/Telegram)",
+        "modo": "demonstracao"
+      },
+      "invariante_ok": null
+    },
+    {
+      "fluxo": "email",
+      "caso": "spam -> arquivar, sem rascunho",
+      "amostra": "email_spam",
+      "ok": true,
+      "segundos": 4.44,
+      "saida": {
+        "email": {
+          "de": "promo@exemplo.invalid",
+          "assunto": "GANHE 90% DE DESCONTO"
+        },
+        "fila": "arquivar",
+        "revisao_humana": false,
+        "classificacao": {
+          "categoria": "spam",
+          "prioridade": "baixa",
+          "resumo": "Mensagem de spam oferecendo 90 porcento de desconto.",
+          "acao_sugerida": "Excluir o e-mail.",
+          "prazo_mencionado": null,
+          "valores_mencionados": [],
+          "rascunho_resposta": null,
+          "confianca": 1
+        },
+        "rascunho_resposta": null,
+        "tokens": 294,
+        "acao": "mover para a pasta de spam",
+        "modo": "demonstracao"
+      },
+      "invariante_ok": null
+    },
+    {
+      "fluxo": "email",
+      "caso": "cobrança com valor -> revisão humana",
+      "amostra": "email_cobranca",
+      "ok": true,
+      "segundos": 7.56,
+      "saida": {
+        "email": {
+          "de": "financeiro@fornecedor.invalid",
+          "assunto": "Boleto NF 4521"
+        },
+        "fila": "revisao_humana",
+        "revisao_humana": true,
+        "classificacao": {
+          "categoria": "fornecedor_cobranca",
+          "prioridade": "media",
+          "resumo": "Envio de segunda via de boleto no valor de R$ 1.280,00 com vencimento em 25/11.",
+          "acao_sugerida": "Encaminhar o boleto para o setor financeiro realizar o pagamento até o vencimento.",
+          "prazo_mencionado": "25/11",
+          "valores_mencionados": [
+            1280
+          ],
+          "rascunho_resposta": "Olá. Recebemos o boleto e o mesmo foi encaminhado para programação de pagamento. Obrigado.",
+          "confianca": 1
+        },
+        "rascunho_resposta": "Olá. Recebemos o boleto e o mesmo foi encaminhado para programação de pagamento. Obrigado.",
+        "tokens": 387,
+        "acao": "enviar para a fila de revisão humana",
+        "modo": "demonstracao"
+      },
+      "invariante_ok": null
+    },
+    {
+      "fluxo": "email",
+      "caso": "confiança baixa -> revisão humana",
+      "amostra": "email_ambiguo",
+      "ok": true,
+      "segundos": 1.1,
+      "saida": {
+        "email": {
+          "de": "x@exemplo.invalid",
+          "assunto": "oi"
+        },
+        "fila": "revisao_humana",
+        "revisao_humana": true,
+        "classificacao": {
+          "categoria": "outro",
+          "prioridade": "baixa",
+          "resumo": "E-mail extremamente ambíguo sem contexto claro.",
+          "acao_sugerida": "Responder pedindo mais detalhes sobre o assunto.",
+          "prazo_mencionado": null,
+          "valores_mencionados": [],
+          "rascunho_resposta": "Olá. Poderia por favor detalhar sobre qual assunto você está falando?",
+          "confianca": 0.1
+        },
+        "rascunho_resposta": "Olá. Poderia por favor detalhar sobre qual assunto você está falando?",
+        "tokens": 294,
+        "acao": "enviar para a fila de revisão humana",
+        "modo": "demonstracao"
+      },
+      "invariante_ok": null
+    },
+    {
+      "fluxo": "documento",
+      "caso": "nota fiscal válida -> pasta do financeiro",
+      "amostra": "doc_nota",
+      "ok": true,
+      "segundos": 5.18,
+      "saida": {
+        "arquivo": "nf_4521.pdf",
+        "status": "ok",
+        "tipo": "nota_fiscal",
+        "pasta": "financeiro/notas",
+        "campos": {
+          "numero": "4521",
+          "razao_social": "Embalagens Prisma Ltda (fictícia)",
+          "cnpj": "00.733.120/0001-90",
+          "valor_total": "R$ 643,80",
+          "vencimento": "05/12/2026"
+        },
+        "resumo": "Nota fiscal no valor de R$ 643,80 emitida por Embalagens Prisma Ltda com vencimento em 05/12/2026.",
+        "pontos_de_atencao": [],
+        "problemas": [],
+        "tokens": 392
+      },
+      "invariante_ok": null
+    },
+    {
+      "fluxo": "documento",
+      "caso": "contrato -> jurídico, com pontos de atenção",
+      "amostra": "doc_contrato",
+      "ok": true,
+      "segundos": 6.03,
+      "saida": {
+        "arquivo": "contrato_limpeza.pdf",
+        "status": "ok",
+        "tipo": "contrato",
+        "pasta": "juridico/contratos",
+        "campos": {
+          "objeto": "prestação de serviços de limpeza"
+        },
+        "resumo": "Contrato de prestação de serviços de limpeza contendo cláusulas de renovação automática e multa de 10%.",
+        "pontos_de_atencao": [
+          "renovação automática",
+          "multa de 10%"
+        ],
+        "problemas": [],
+        "tokens": 278
+      },
+      "invariante_ok": null
+    },
+    {
+      "fluxo": "documento",
+      "caso": "CNPJ inválido e sem total -> revisão humana",
+      "amostra": "doc_invalido",
+      "ok": true,
+      "segundos": 1.13,
+      "saida": {
+        "arquivo": "scan_ilegivel.pdf",
+        "status": "ok",
+        "tipo": "nota_fiscal",
+        "pasta": "revisao_humana",
+        "campos": {
+          "cnpj": "123"
+        },
+        "resumo": "Nota fiscal ilegivel com CNPJ parcial.",
+        "pontos_de_atencao": [
+          "documento ilegivel ou incompleto"
+        ],
+        "problemas": [
+          "cnpj_formato_invalido",
+          "valor_total_ausente"
+        ],
+        "tokens": 216
+      },
+      "invariante_ok": null
+    },
+    {
+      "fluxo": "reuniao",
+      "caso": "tarefa atribuída a quem não estava na reunião -> 'a definir'",
+      "amostra": "reuniao",
+      "ok": false,
+      "segundos": 2.1,
+      "saida": {
+        "status": "ok",
+        "titulo": "Campanha de fim de ano",
+        "ata_markdown": "# Ata · Campanha de fim de ano\n\nReunião de alinhamento para a campanha de fim de ano.\n\n## Decisões\n- A campanha começará no dia primeiro de dezembro.\n\n## Tarefas\n| Tarefa | Responsável | Prazo |\n|---|---|---|\n| Cotar três fornecedores de embalagem | Bruno | até sexta |\n| Fechar as artes | Ana | até dia 26 |\n\n## Riscos\n- A revisão do contrato com a transportadora está em aberto sem responsável definido.",
+        "tarefas": [
+          {
+            "descricao": "Cotar três fornecedores de embalagem",
+            "responsavel": "Bruno",
+            "prazo": "até sexta",
+            "responsavel_valido": true
+          },
+          {
+            "descricao": "Fechar as artes",
+            "responsavel": "Ana",
+            "prazo": "até dia 26",
+            "responsavel_valido": true
+          }
+        ],
+        "decisoes": [
+          "A campanha começará no dia primeiro de dezembro."
+        ],
+        "tarefas_sem_responsavel": 0,
+        "tokens": 362
+      },
+      "invariante_ok": true
+    },
+    {
+      "fluxo": "pesquisa",
+      "caso": "busca real na Wikipedia; citação inexistente removida",
+      "amostra": "pesquisa",
+      "ok": false,
+      "segundos": 2.65,
+      "saida": {
+        "status": "ok",
+        "tema": "Lei Geral de Proteção de Dados",
+        "relatorio_markdown": "# Lei Geral de Proteção de Dados\n\nAs fontes fornecidas abordam legislações sobre proteção de dados, especificamente o Regulamento Geral sobre a Proteção de Dados (RGPD) na União Europeia e a Lei Geral de Proteção de Dados Pessoais (LGPD) no Brasil. O RGPD entrou em vigor em 2018 para unificar o quadro regulamentar europeu e dar maior controlo aos cidadãos sobre as suas informações. De forma semelhante, a LGPD brasileira, também de 2018, estabelece normas para o tratamento de dados pessoais e protege direitos fundamentais como a privacidade. Ambas as legislações impõem obrigações rigorosas aos controladores e definem direitos claros para os titulares dos dados.\n\n## Pontos-chave\n- O RGPD é um regulamento europeu criado em 2018 que visa dar aos cidadãos controlo sobre os seus dados pessoais e unificar o quadro regulamentar, aplicando-se a todas as empresas que operam no Espaço Económico Europeu. [1]\n- O RGPD obriga à comunicação de violações de dados em até 72 horas e exige a figura do data protection officer (DPO) em autoridades públicas e empresas com tratamento sistemático de dados. [1]\n- A LGPD é a lei federal brasileira promulgada em 2018 que estabelece normas para a proteção e tratamento de dados pessoais em território nacional, alterando também o Marco Civil da Internet. [2]\n- A LGPD fundamenta-se em valores como o respeito à privacidade, a autodeterminação informativa e os direitos humanos, criando novos conceitos jurídicos e obrigações para controladores e operadores. [2]\n\n## O que as fontes não cobrem\n- Sanções e multas específicas aplicadas em caso de infração de ambas as leis.\n- Detalhes sobre a autoridade nacional de fiscalização encarregada de aplicar a LGPD no Brasil.\n\n## Fontes\n1. [Regulamento Geral sobre a Proteção de Dados](https://pt.wikipedia.org/wiki/Regulamento_Geral_sobre_a_Prote%C3%A7%C3%A3o_de_Dados)\n2. [Lei Geral de Proteção de Dados Pessoais](https://pt.wikipedia.org/wiki/Lei_Geral_de_Prote%C3%A7%C3%A3o_de_Dados_Pessoais)",
+        "pontos_sem_fonte": 0,
+        "citacoes_invalidas": 0,
+        "fontes": [
+          {
+            "id": 1,
+            "titulo": "Regulamento Geral sobre a Proteção de Dados",
+            "url": "https://pt.wikipedia.org/wiki/Regulamento_Geral_sobre_a_Prote%C3%A7%C3%A3o_de_Dados"
+          },
+          {
+            "id": 2,
+            "titulo": "Lei Geral de Proteção de Dados Pessoais",
+            "url": "https://pt.wikipedia.org/wiki/Lei_Geral_de_Prote%C3%A7%C3%A3o_de_Dados_Pessoais"
+          }
+        ],
+        "tokens": 1755
+      },
+      "invariante_ok": true
+    },
+    {
+      "fluxo": "relatorio",
+      "caso": "dados reais do BCB; todos os números do texto conferem",
+      "amostra": null,
+      "ok": true,
+      "segundos": 1.68,
+      "saida": {
+        "status": "ok",
+        "relatorio_markdown": "# Boletim do Dólar PTAX para sua empresa\n\nO Dólar PTAX (venda) encerrou cotado a 5,7324 em 16/11/2026. O indicador apresentou variação de 3,95% em 5 pregões e 9,74% no período.\n\n- Último valor registrado de 5,7324 em 16/11/2026.\n- Variação de 3,95% nos últimos 5 pregões.\n- Variação acumulada no período de 9,74%.\n\n_Fonte: Banco Central do Brasil (SGS), 02/10/2026 a 16/11/2026._",
+        "indicadores": {
+          "indicador": "Dólar PTAX (venda)",
+          "ultima_data": "16/11/2026",
+          "ultimo": 5.7324,
+          "var_5_pregoes_pct": 3.95,
+          "var_periodo_pct": 9.74,
+          "minimo": 4.9698,
+          "maximo": 5.7324,
+          "observacoes": 30,
+          "primeira_data": "02/10/2026"
+        },
+        "numeros_sem_respaldo": [],
+        "tokens": 382,
+        "entrega": "em produção: e-mail/Slack para a equipe (modo demonstração: só retorna o relatório)"
+      },
+      "invariante_ok": null
+    }
+  ]
+}

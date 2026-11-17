@@ -48,9 +48,32 @@ As APIs da **Wikipedia** e do **Banco Central** são chamadas de verdade.
 | Importação e ativação no n8n 2.47.7 | ✅ |
 | Lógica dos fluxos, regras de negócio, tratamento de erro | ✅ 11 casos de ponta a ponta |
 | Integração real com Wikipedia e Banco Central | ✅ |
-| Formato da requisição aceito pelo **Gemini real** | ⏳ **pendente** (validado só contra o servidor falso) |
-| Qualidade das classificações, extrações e resumos do Gemini | ⏳ **pendente**: falta um conjunto rotulado e um benchmark |
+| Formato da requisição aceito pelo **Gemini real** | ✅ os 5 fluxos rodaram com `gemini-3.5-flash-lite` (status `ok` em todos) |
+| Classificações, extrações e resumos do Gemini | ◐ 10 casos com o modelo real (8 pelo critério do e2e, 10 pelas invariantes dos fluxos); ⏳ **pendente**: conjunto rotulado maior e benchmark |
 | Integrações de saída (Gmail, Slack, Drive) | ⏳ **pendente**: hoje os nós de ação registram a decisão (`modo: demonstracao`) |
+
+## Validação com o Gemini real
+
+[`tests/e2e_gemini.py`](tests/e2e_gemini.py) roda os mesmos casos do e2e, no n8n real, trocando o servidor falso pelo **Gemini real** (`gemini-3.5-flash-lite`, 16/11/2026). Fica de fora só o caso de "resposta inválida do LLM", que só existe no servidor falso. Saída completa de cada caso em [`tests/resultados_gemini.json`](tests/resultados_gemini.json).
+
+| Fluxo | Casos | Aprovados | Tempo por execução |
+|---|---|---|---|
+| E-mail | 4 | 4/4 | 1,1 s a 7,6 s |
+| Documento | 3 | 3/3 | 1,1 s a 6,0 s |
+| Reunião | 1 | 0/1 pelo critério do e2e · **invariante ✓** | 2,1 s |
+| Pesquisa | 1 | 0/1 pelo critério do e2e · **invariante ✓** | 2,6 s |
+| Boletim (BCB) | 1 | 1/1 | 1,7 s |
+
+Aqui os tempos **incluem** a inferência do modelo (uma execução por caso, sem repetição, então servem só como ordem de grandeza).
+
+**O que valeu a pena nos dois casos "reprovados".** Os critérios do e2e foram escritos para o servidor falso, que é roteirizado para errar de propósito e exercitar as regras em código. Com o modelo real, o que importa é se o fluxo entrega um resultado correto:
+
+- **Reunião:** o e2e espera `tarefas_sem_responsavel == 1` porque o falso atribui uma tarefa a Carlos, que não estava na reunião. O Gemini real não atribuiu a tarefa a ninguém e a registrou como **risco** ("revisão do contrato em aberto sem responsável definido"). Não houve atribuição indevida para a regra corrigir. Ressalva honesta: a tarefa ficou fora da tabela de tarefas, o que é discutível; o ideal seria aparecer como "a definir".
+- **Pesquisa:** o e2e espera `citacoes_invalidas == 1` porque o falso inventa a citação `[3]`. O Gemini real citou apenas as 2 fontes existentes (0 citações inválidas, 0 pontos sem fonte).
+
+Por isso os dois números aparecem lado a lado: o critério original reprova esses dois casos e a **invariante** do fluxo (nenhuma tarefa atribuída a quem não participou; nenhuma citação fora das fontes) passa nos dois. Não troquei o critério para forçar 10/10.
+
+O que **não** está validado: a checagem de citações só garante que o número citado existe entre as fontes, não que a frase corresponda ao conteúdo da fonte; e 10 casos de um único modelo não são um benchmark.
 
 ### Etapas manuais eliminadas
 
